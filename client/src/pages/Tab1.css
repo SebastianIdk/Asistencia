@@ -1,0 +1,86 @@
+.tab1-content {
+  --background: var(--ion-color-light);
+}
+
+.tab1-wrapper {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.tab1-card {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 16px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.tab1-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+  background: #fff;
+}
+
+.tab1-avatar {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-bottom: 8px;
+}
+
+.tab1-icon {
+  font-size: 32px;
+  color: #fff;
+}
+
+.tab1-welcome {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.tab1-name {
+  display: block;
+  font-weight: 600;
+  color: #000;
+  text-align: center;
+  margin-bottom: 8px;
+  text-transform: none;
+}
+
+.tab1-datetime,
+.tab1-instruction {
+  display: block;
+  font-size: 0.875rem;
+  color: #666;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.tab1-item {
+  margin-top: 12px;
+  border-radius: 8px;
+}
+
+.tab1-item ion-input {
+  --placeholder-color: #888888;
+  --placeholder-opacity: 1;
+}
+
+.tab1-button {
+  margin-top: 24px;
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  --border-radius: 50px;
+  color: #fff !important;
+}
