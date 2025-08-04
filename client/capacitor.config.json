@@ -1,0 +1,6 @@
+{
+  "appId": "com.puce.asistencia",
+  "appName": "Asistencia",
+  "webDir": "build",
+  "bundledWebRuntime": false
+}
