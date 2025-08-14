@@ -20,31 +20,33 @@ import Tab2 from './pages/Tab2';
 setupIonicReact();
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!localStorage.getItem('currentUser'));
 
   return (
     <IonApp>
       <IonReactRouter>
         {!isAuthenticated ? (
-          // Rutas públicas: solo /login, todo lo demás redirige ahí
           <IonRouterOutlet>
             <Route exact path="/login">
               <Login onLogin={() => setIsAuthenticated(true)} />
             </Route>
+            <Route exact path="/">
+              <Redirect to="/login" />
+            </Route>
             <Route render={() => <Redirect to="/login" />} />
           </IonRouterOutlet>
         ) : (
-          // Rutas privadas: tabs completas
           <IonTabs>
             <IonRouterOutlet>
               <Route exact path="/tab1">
-                <Tab1 />
+                <Tab1 onLogout={() => { localStorage.removeItem('currentUser'); setIsAuthenticated(false); }} />
               </Route>
               <Route exact path="/tab2">
                 <Tab2 />
               </Route>
-
-              {/* Si hacen “/” dentro de tabs, los mando a tab1 */}
+              <Route exact path="/login">
+                <Redirect to="/tab1" />
+              </Route>
               <Route exact path="/">
                 <Redirect to="/tab1" />
               </Route>
