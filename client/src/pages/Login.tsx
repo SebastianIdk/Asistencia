@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useHistory } from "react-router-dom";
 import {
   IonPage,
@@ -20,6 +20,8 @@ import {
 } from "@ionic/react";
 import { personCircleOutline } from "ionicons/icons";
 import "./Login.css";
+import type { IonInputCustomEvent } from "@ionic/core";
+import type { InputInputEventDetail } from "@ionic/core/components";
 
 interface LoginProps {
   onLogin: () => void;
@@ -40,6 +42,44 @@ const ENDPOINT = "/api-puce/api/examen.php";
 const normalize = (s: string) => (s || "").trim().toLowerCase();
 const digitsOnly = (s: string) => (s || "").replace(/\D/g, "");
 const isCedula10 = (s: string) => /^\d{10}$/.test(s);
+
+const CONTROL_KEYS = new Set([
+  "Backspace",
+  "Delete",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Tab",
+  "Home",
+  "End",
+  "Enter",
+  "Escape",
+]);
+
+const handleUsernameKeyDown = (e: React.KeyboardEvent) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (CONTROL_KEYS.has(k)) return;
+  if (!/^[a-z]$/.test(k)) e.preventDefault();
+};
+
+const handlePasswordKeyDown = (e: React.KeyboardEvent) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (CONTROL_KEYS.has(k)) return;
+  if (!/^\d$/.test(k)) e.preventDefault();
+};
+
+const handleUsernamePaste = (e: React.ClipboardEvent) => {
+  const text = e.clipboardData.getData("text") ?? "";
+  if (!/^[a-z]+$/.test(text)) e.preventDefault();
+};
+
+const handlePasswordPaste = (e: React.ClipboardEvent) => {
+  const text = e.clipboardData.getData("text") ?? "";
+  if (!/^\d+$/.test(text)) e.preventDefault();
+};
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -63,7 +103,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   }, [history, onLogin]);
 
-  const handleLogin = async () => {
+  const isUsernameValid = /^[a-z]+$/.test(username);
+  const isPasswordValid = /^\d{10}$/.test(password);
+  const canSubmit = isUsernameValid && isPasswordValid;
+
+  const handleLogin = useCallback(async () => {
     const userNorm = normalize(username);
     const passDigits = digitsOnly(password);
 
@@ -91,7 +135,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       const data = (await res.json()) as PUCEUser[];
       const clean = (data || []).filter((u) => u && u.user && u.id);
-
       const candidates = clean.filter((u) => normalize(u.user) === userNorm);
 
       if (candidates.length === 0) {
@@ -121,7 +164,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     } finally {
       dismiss();
     }
-  };
+  }, [username, password, history, onLogin, present, dismiss]);
+
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Enter" && canSubmit) {
+        ev.preventDefault();
+        handleLogin();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canSubmit, handleLogin]);
 
   return (
     <IonPage>
@@ -145,33 +199,41 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   type="text"
                   placeholder="Usuario"
                   value={username}
-                  onIonChange={(e) => setUsername(String(e.detail.value ?? ""))}
-                  style={
-                    {
-                      "--placeholder-color": "#888888",
-                      "--placeholder-opacity": "1",
-                    } as React.CSSProperties
+                  onKeyDown={handleUsernameKeyDown}
+                  onPaste={handleUsernamePaste}
+                  onIonInput={(e: IonInputCustomEvent<InputInputEventDetail>) =>
+                    setUsername(e.detail.value?.toString() ?? "")
                   }
+                  inputmode="text"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellCheck={false}
+                  enterkeyhint="go"
                 />
               </IonItem>
+
               <IonItem className="login-item" fill="outline">
                 <IonInput
                   type="password"
                   placeholder="Contraseña (cédula)"
                   value={password}
-                  onIonChange={(e) => setPassword(String(e.detail.value ?? ""))}
-                  style={
-                    {
-                      "--placeholder-color": "#888888",
-                      "--placeholder-opacity": "1",
-                    } as React.CSSProperties
+                  onKeyDown={handlePasswordKeyDown}
+                  onPaste={handlePasswordPaste}
+                  onIonInput={(e: IonInputCustomEvent<InputInputEventDetail>) =>
+                    setPassword(e.detail.value?.toString() ?? "")
                   }
+                  inputmode="numeric"
+                  maxlength={10}
+                  enterkeyhint="go"
                 />
               </IonItem>
+
               <IonButton
+                type="button"
                 expand="block"
-                className="login-button"
+                className={`login-button ${canSubmit ? "is-ready" : ""}`}
                 onClick={handleLogin}
+                disabled={!canSubmit}
               >
                 Ingresar
               </IonButton>
@@ -182,9 +244,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <IonToast
           isOpen={showToast}
           message={toastMsg}
-          duration={2200}
-          color={toastMsg.toLowerCase().includes("error") ? "danger" : "danger"}
+          color={"danger"}
           onDidDismiss={() => setShowToast(false)}
+          buttons={[{ text: "Cerrar", role: "cancel" }]}
+          position="top"
+          cssClass="toast-top-right"
+          duration={4000}
         />
       </IonContent>
     </IonPage>
