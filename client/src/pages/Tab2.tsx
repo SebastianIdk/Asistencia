@@ -14,6 +14,8 @@ import {
 } from '@ionic/react';
 import type { DatetimeChangeEventDetail, IonDatetimeCustomEvent } from '@ionic/core';
 import './Tab2.css';
+import { API_EXAMEN } from '../api';
+import { apiGet } from '../apiClient';
 
 interface PUCEUser {
   record: string;
@@ -31,8 +33,6 @@ interface AttendRow {
   time: string;
   join_date: string;
 }
-
-const ENDPOINT_BASE = '/api-puce/api/examen.php';
 
 const dayNameEs = (isoDate: string) => {
   try {
@@ -133,20 +133,18 @@ const Tab2: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const ac = new AbortController();
 
     const fetchRows = async () => {
       if (!currentUser?.record) return;
       setLoading(true);
       try {
-        const url = `${ENDPOINT_BASE}?record=${encodeURIComponent(currentUser.record)}`;
-        const res = await fetch(url, { signal: ac.signal });
-        if (!res.ok) throw new Error('No se pudieron obtener los registros');
+        const res = await apiGet<AttendRow[] | { data: AttendRow[] }>(API_EXAMEN, {
+          record: String(currentUser.record),
+        });
 
-        const jsonUnknown: unknown = await res.json();
         let base: AttendRow[] = [];
-        if (isAttendArray(jsonUnknown)) base = jsonUnknown;
-        else if (hasDataAttendArray(jsonUnknown)) base = jsonUnknown.data;
+        if (isAttendArray(res)) base = res;
+        else if (hasDataAttendArray(res)) base = res.data;
 
         const decorated = decorate(base);
         decorated.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
@@ -159,7 +157,7 @@ const Tab2: React.FC = () => {
     };
 
     fetchRows();
-    return () => { cancelled = true; ac.abort(); setLoading(false); };
+    return () => { cancelled = true; };
   }, [currentUser?.record]);
 
   const fullUser = currentUser

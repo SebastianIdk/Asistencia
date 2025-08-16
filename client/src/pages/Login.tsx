@@ -22,6 +22,8 @@ import { personCircleOutline } from "ionicons/icons";
 import "./Login.css";
 import type { IonInputCustomEvent } from "@ionic/core";
 import type { InputInputEventDetail } from "@ionic/core/components";
+import { API_EXAMEN } from "../api";
+import { apiGet } from "../apiClient";
 
 interface LoginProps {
   onLogin: () => void;
@@ -36,8 +38,6 @@ interface PUCEUser {
   phone: string;
   user: string;
 }
-
-const ENDPOINT = "/api-puce/api/examen.php";
 
 const normalize = (s: string) => (s || "").trim().toLowerCase();
 const digitsOnly = (s: string) => (s || "").replace(/\D/g, "");
@@ -130,10 +130,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     try {
       await present({ message: "Verificando usuario…", spinner: "circles" });
 
-      const res = await fetch(ENDPOINT);
-      if (!res.ok) throw new Error("No se pudo consultar el listado");
-
-      const data = (await res.json()) as PUCEUser[];
+      const data = await apiGet<PUCEUser[]>(API_EXAMEN);
       const clean = (data || []).filter((u) => u && u.user && u.id);
       const candidates = clean.filter((u) => normalize(u.user) === userNorm);
 

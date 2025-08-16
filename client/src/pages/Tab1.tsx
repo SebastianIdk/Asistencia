@@ -23,6 +23,8 @@ import { useHistory } from "react-router-dom";
 import type { IonInputCustomEvent } from "@ionic/core";
 import type { InputInputEventDetail } from "@ionic/core/components";
 import "./Tab1.css";
+import { API_EXAMEN } from "../api";
+import { apiPost } from "../apiClient";
 
 interface PUCEUser {
   record: string;
@@ -38,7 +40,6 @@ interface Tab1Props {
   onLogout: () => void;
 }
 
-const ATTEND_ENDPOINT = "/api-puce/api/examen.php";
 const getRandomPos = () => Math.floor(Math.random() * 10) + 1;
 const digitsOnly = (s: string) => (s || "").replace(/\D/g, "");
 
@@ -145,6 +146,15 @@ const Tab1: React.FC<Tab1Props> = ({ onLogout }) => {
     if (digit !== d2) setD2(digit);
   };
 
+  const parseApiMessage = (resp: unknown): { ok: boolean; message: string } => {
+    if (typeof resp === "object" && resp !== null) {
+      const r = resp as Record<string, unknown>;
+      if (typeof r.error === "string") return { ok: false, message: r.error };
+      if (typeof r.message === "string") return { ok: true, message: r.message };
+    }
+    return { ok: true, message: "OK" };
+  };
+
   const onRegister = async () => {
     if (!currentUser) return;
 
@@ -176,17 +186,12 @@ const Tab1: React.FC<Tab1Props> = ({ onLogout }) => {
         join_user: Number(currentUser.record),
       };
 
-      const res = await fetch(ATTEND_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Error al registrar asistencia");
+      const resp = await apiPost<unknown>(API_EXAMEN, body);
+      const parsed = parseApiMessage(resp);
+      if (!parsed.ok) throw new Error(parsed.message);
 
       setToastSuccess(true);
-      setToastMsg(json?.message || "Asistencia registrada ✅");
+      setToastMsg(parsed.message || "Asistencia registrada");
       setShowToast(true);
       regeneratePositions();
     } catch (e) {
