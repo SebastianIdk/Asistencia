@@ -193,6 +193,7 @@ const Tab1: React.FC<Tab1Props> = ({ onLogout }) => {
       setToastSuccess(true);
       setToastMsg(parsed.message || "Asistencia registrada");
       setShowToast(true);
+      window.dispatchEvent(new CustomEvent("attendance:updated"));
       regeneratePositions();
     } catch (e) {
       const msg =

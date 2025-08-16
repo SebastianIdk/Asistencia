@@ -205,3 +205,25 @@
 }
 .toast-top-right::part(button) { font-weight: 700; text-transform: uppercase; }
 .toast-top-right::part(message) { font-weight: 500; }
+
+.refresh-spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+ion-button[title="Actualizar registros"] {
+  --color: #666;
+  --color-hover: #333;
+}
+
+ion-button[title="Actualizar registros"]:hover {
+  --color: #333;
+}

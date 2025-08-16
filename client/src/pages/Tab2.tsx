@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IonPage,
   IonHeader,
@@ -11,7 +11,13 @@ import {
   IonDatetime,
   IonDatetimeButton,
   IonModal,
+  IonButtons,
+  IonButton,
+  IonIcon,
+  useIonViewDidEnter,
+  useIonViewDidLeave,
 } from '@ionic/react';
+import { refreshOutline } from 'ionicons/icons';
 import type { DatetimeChangeEventDetail, IonDatetimeCustomEvent } from '@ionic/core';
 import './Tab2.css';
 import { API_EXAMEN } from '../api';
@@ -54,17 +60,45 @@ const formatHMS = (secs: number) => {
   return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
 };
 
+const adjustTimeMinusOneHour = (time: string) => {
+  try {
+    const [hours, minutes, seconds] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, seconds || 0);
+    date.setHours(date.getHours() - 1);
+    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+  } catch {
+    return time;
+  }
+};
+
 type DecoratedRow = AttendRow & {
   weekday: string;
   expected?: string;
   novelty: string;
   isLate: boolean;
   outOfSchedule: boolean;
+  displayTime: string;
 };
 
 const toYMD = (iso: string) => {
   const i = iso.indexOf('T');
   return i > 0 ? iso.slice(0, i) : iso;
+};
+
+const getCurrentYMD = () => {
+  const now = new Date();
+  return now.toISOString().split('T')[0];
+};
+
+const getCurrentYearMonth = () => {
+  const now = new Date();
+  return now.toISOString().slice(0, 7);
+};
+
+const getCurrentYear = () => {
+  const now = new Date();
+  return now.getFullYear().toString();
 };
 
 type FilterMode = 'all' | 'day' | 'month' | 'year';
@@ -86,6 +120,7 @@ const hasDataAttendArray = (x: unknown): x is { data: AttendRow[] } =>
 const Tab2: React.FC = () => {
   const [rows, setRows] = useState<DecoratedRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; msg: string; ok: boolean }>({
     open: false, msg: '', ok: true
   });
@@ -111,11 +146,12 @@ const Tab2: React.FC = () => {
       const weekday = dayNameEs(r.date);
       const lw = weekday.toLowerCase();
       let expected: string | undefined;
-      if (lw.startsWith('mar')) expected = '17:00:00';
+      if (lw.startsWith('mié')) expected = '17:00:00';
       else if (lw.startsWith('sá')) expected = '08:00:00';
       let isLate = false;
       let novelty = 'A tiempo';
       let outOfSchedule = false;
+      const displayTime = adjustTimeMinusOneHour(r.time);
       if (!expected) {
         novelty = 'Fuera de horario';
         outOfSchedule = true;
@@ -128,37 +164,69 @@ const Tab2: React.FC = () => {
           novelty = `${formatHMS(diffSec)} Atraso`;
         }
       }
-      return { ...r, weekday, expected, novelty, isLate, outOfSchedule };
+      return { ...r, weekday, expected, novelty, isLate, outOfSchedule, displayTime };
     });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchRows = async () => {
-      if (!currentUser?.record) return;
-      setLoading(true);
-      try {
-        const res = await apiGet<AttendRow[] | { data: AttendRow[] }>(API_EXAMEN, {
-          record: String(currentUser.record),
-        });
-
-        let base: AttendRow[] = [];
-        if (isAttendArray(res)) base = res;
-        else if (hasDataAttendArray(res)) base = res.data;
-
-        const decorated = decorate(base);
-        decorated.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-        if (!cancelled) setRows(decorated);
-      } catch (e) {
-        if (!cancelled) setToast({ open: true, msg: e instanceof Error ? e.message : 'Error de red', ok: false });
-      } finally {
-        if (!cancelled) setLoading(false);
+  const refetch = useCallback(async (showSpinner = false, showToast = false) => {
+    if (!currentUser?.record) return;
+    if (showSpinner) setLoading(true);
+    setIsRefreshing(true);
+    try {
+      const res = await apiGet<AttendRow[] | { data: AttendRow[] }>(API_EXAMEN, {
+        record: String(currentUser.record),
+        t: Date.now(),
+      });
+      let base: AttendRow[] = [];
+      if (isAttendArray(res)) base = res;
+      else if (hasDataAttendArray(res)) base = res.data;
+      const decorated = decorate(base);
+      decorated.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      setRows(decorated);
+      
+      if (showToast) {
+        setToast({ open: true, msg: 'Registros actualizados', ok: true });
       }
-    };
-
-    fetchRows();
-    return () => { cancelled = true; };
+    } catch (e) {
+      setToast({ open: true, msg: e instanceof Error ? e.message : 'Error de red', ok: false });
+    } finally {
+      if (showSpinner) setLoading(false);
+      setIsRefreshing(false);
+    }
   }, [currentUser?.record]);
+
+  const handleManualRefresh = () => {
+    refetch(false, true);
+  };
+
+  useEffect(() => {
+    refetch(true, false);
+  }, [refetch]);
+
+  const POLL_MS = 20000;
+  const timerRef = useRef<number | null>(null);
+
+  const startPolling = useCallback(() => {
+    if (timerRef.current) return;
+    timerRef.current = window.setInterval(() => refetch(false, false), POLL_MS) as unknown as number;
+  }, [refetch]);
+
+  const stopPolling = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useIonViewDidEnter(startPolling);
+  useIonViewDidLeave(stopPolling);
+
+  useEffect(() => stopPolling, [stopPolling]);
+
+  useEffect(() => {
+    const onUpdated = () => refetch(false, true);
+    window.addEventListener('attendance:updated', onUpdated);
+    return () => window.removeEventListener('attendance:updated', onUpdated);
+  }, [refetch]);
 
   const fullUser = currentUser
     ? `${(currentUser.lastnames || '').toUpperCase()} ${(currentUser.names || '').toUpperCase()}`.trim()
@@ -180,6 +248,27 @@ const Tab2: React.FC = () => {
   const pageRows = filtered.slice(pageStart, pageStart + pageSize);
   const showingFrom = filtered.length === 0 ? 0 : pageStart + 1;
   const showingTo = Math.min(filtered.length, pageStart + pageSize);
+
+  const handleDayFilter = () => {
+    const today = getCurrentYMD();
+    setMode('day');
+    setSelDay(today);
+    setPage(1);
+  };
+
+  const handleMonthFilter = () => {
+    const currentMonth = getCurrentYearMonth();
+    setMode('month');
+    setSelMonth(currentMonth);
+    setPage(1);
+  };
+
+  const handleYearFilter = () => {
+    const currentYear = getCurrentYear();
+    setMode('year');
+    setSelYear(currentYear);
+    setPage(1);
+  };
 
   const onDayChanged = (e: IonDatetimeCustomEvent<DatetimeChangeEventDetail>) => {
     const v = e.detail.value; if (!v) return;
@@ -206,36 +295,44 @@ const Tab2: React.FC = () => {
       <IonHeader>
         <IonToolbar color="light">
           <IonTitle>Registros</IonTitle>
+          <IonButtons slot="end">
+            <IonButton 
+              fill="clear" 
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              title="Actualizar registros"
+            >
+              <IonIcon 
+                icon={refreshOutline} 
+                className={isRefreshing ? 'refresh-spinning' : ''} 
+              />
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
-
       <IonContent className="tab2-content">
         <div className="tab2-wrapper">
           <div className="tab2-filter-group">
             <IonText className="tab2-filter-label">Filtrar por:</IonText>
-
             <div className="filter-modes">
               <button
                 type="button"
                 className={`btn-pill ${mode === 'day' ? 'primary selected' : 'ghost'}`}
-                onClick={() => setMode('day')}
+                onClick={handleDayFilter}
                 aria-pressed={mode === 'day'}
               >Día</button>
-
               <button
                 type="button"
                 className={`btn-pill ${mode === 'month' ? 'primary selected' : 'ghost'}`}
-                onClick={() => setMode('month')}
+                onClick={handleMonthFilter}
                 aria-pressed={mode === 'month'}
               >Mes</button>
-
               <button
                 type="button"
                 className={`btn-pill ${mode === 'year' ? 'primary selected' : 'ghost'}`}
-                onClick={() => setMode('year')}
+                onClick={handleYearFilter}
                 aria-pressed={mode === 'year'}
               >Año</button>
-
               <button
                 type="button"
                 className={`btn-pill ${mode === 'all' ? 'primary selected' : 'ghost'}`}
@@ -244,7 +341,6 @@ const Tab2: React.FC = () => {
                 aria-pressed={mode === 'all'}
                 title="Ver todos"
               >Todos</button>
-
               <button
                 type="button"
                 className={`btn-pill ${hasFilter ? 'primary' : 'ghost'}`}
@@ -253,13 +349,11 @@ const Tab2: React.FC = () => {
                 title="Quitar filtro"
               >Quitar filtro</button>
             </div>
-
             <div className="date-trigger-wrap">
               <IonDatetimeButton datetime="filter-day"   className={`date-trigger ${mode === 'day' ? '' : 'hidden'}`} />
               <IonDatetimeButton datetime="filter-month" className={`date-trigger ${mode === 'month' ? '' : 'hidden'}`} />
               <IonDatetimeButton datetime="filter-year"  className={`date-trigger ${mode === 'year' ? '' : 'hidden'}`} />
             </div>
-
             <IonModal keepContentsMounted={true}>
               <IonDatetime
                 id="filter-day"
@@ -273,7 +367,6 @@ const Tab2: React.FC = () => {
                 onIonChange={onDayChanged}
               />
             </IonModal>
-
             <IonModal keepContentsMounted={true}>
               <IonDatetime
                 id="filter-month"
@@ -287,7 +380,6 @@ const Tab2: React.FC = () => {
                 onIonChange={onMonthChanged}
               />
             </IonModal>
-
             <IonModal keepContentsMounted={true}>
               <IonDatetime
                 id="filter-year"
@@ -328,7 +420,7 @@ const Tab2: React.FC = () => {
                       </td>
                       <td data-label="Día">{r.weekday}</td>
                       <td data-label="Fecha">{r.date}</td>
-                      <td data-label="Hora de Registro">{r.time}</td>
+                      <td data-label="Hora de Registro">{r.displayTime}</td>
                       <td data-label="Hora de Entrada">{r.expected ?? '—'}</td>
                       <td data-label="Novedad" className="tab2-novelty">
                         <span className={`chip ${r.outOfSchedule ? 'chip-warn' : r.isLate ? 'chip-danger' : 'chip-success'}`}>
@@ -346,7 +438,6 @@ const Tab2: React.FC = () => {
             <div className="pag-info">
               Mostrando <strong>{showingFrom}</strong>–<strong>{showingTo}</strong> de <strong>{filtered.length}</strong>
             </div>
-
             <div className="pag-controls">
               <button
                 type="button"
@@ -354,9 +445,7 @@ const Tab2: React.FC = () => {
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
               >◀ Anterior</button>
-
               <span className="pag-page">Página {safePage} de {totalPages}</span>
-
               <button
                 type="button"
                 className="btn-pill ghost"
@@ -364,7 +453,6 @@ const Tab2: React.FC = () => {
                 disabled={safePage >= totalPages}
               >Siguiente ▶</button>
             </div>
-
             <div className="pag-size">
               <label>Por página:</label>
               <select
@@ -380,7 +468,6 @@ const Tab2: React.FC = () => {
         </div>
 
         <IonLoading isOpen={loading} message="Cargando registros…" spinner="circles" />
-
         <IonToast
           isOpen={toast.open}
           message={toast.msg}
