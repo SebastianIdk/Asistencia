@@ -1,15 +1,18 @@
-# README: Despliegue de tu App Ionic en Android 📱
+# Despliegue de App Ionic en Android 📱
 
 Este README resume los pasos para armar, sincronizar y probar el proyecto Ionic usando Capacitor y Android Studio, sin necesidad de cables USB.
-## Nota Importante
-La versión Web es funcional en el commit 'v1', esto debido a que se hizo cambios en la forma de manejar http para el APK (Commit 'end')
-Si se desea probar la versión Web (ionic) restaurar los archivos del commit 'v1', pero si solo se desea ocupar el APK, ocupar cualquiera de los ultimos commits.
+## ⚠️ Nota importante
+
+- La versión web es funcional en el commit `v1`, debido a que en commits posteriores (por ejemplo, `end`) se realizaron cambios en el manejo de las solicitudes HTTP para compilar el APK.
+- Si se desea probar la versión web (modo `ionic serve`), restaura los archivos correspondientes al commit `v1`.
+- Si únicamente se desea compilar y utilizar el APK, puedes trabajar desde cualquiera de los commits más recientes.
+
 ---
 
 ## 📋 Requisitos
 
 * Node.js y npm
-* Ionic CLI (instálalo con `npm install -g @ionic/cli`)
+* Ionic CLI (instalarlo con `npm install -g @ionic/cli`)
 * Android Studio con SDK de Android y **`adb`** en tu PATH
 * En tu `package.json`, tener estas dependencias instaladas localmente:
 
@@ -26,10 +29,34 @@ Si se desea probar la versión Web (ionic) restaurar los archivos del commit 'v1
 
 ---
 
+## 🌐 Ejecutar la versión Web
+
+Desde el directorio `client/`, ejecuta los siguientes pasos:
+
+```bash
+npm install
+```
+
+Luego, para iniciar el servidor de desarrollo:
+
+```bash
+ionic serve
+```
+
+> ⚠️ **Nota:** Asegurarse de tener instalada la CLI de Ionic globalmente:
+>
+> ```bash
+> npm install -g @ionic/cli
+> ```
+
+Esto abrirá la aplicación en el navegador en modo desarrollo, permitiendo ver los cambios en tiempo real.
+
+---
+
 ## 1. Preparar el proyecto
 
 ```bash
-# Desde la raíz de tu carpeta client/
+# Desde la raíz client/
 npm install
 ```
 
@@ -37,8 +64,8 @@ npm install
 
 ## 2. Configurar Capacitor
 
-1. Edita `capacitor.config.json` para apuntar al directorio donde se genera tu build web.
-   Si Ionic crea `build/`, dejalo así:
+1. Editar `capacitor.config.json` para apuntar al directorio donde se genera la build web.
+   Si Ionic crea `build/`, dejarlo así:
 
    ```jsonc
    {
@@ -49,9 +76,9 @@ npm install
    }
    ```
 
-   > Si usás otra carpeta (`www`, `dist`, etc.), cambiala en `webDir`.
+   > Si se usa otra carpeta (`www`, `dist`, etc.), se debe de cambiar en `webDir`.
 
-2. Instala la plataforma Android de Capacitor:
+2. Instalar la plataforma Android de Capacitor:
 
    ```bash
    npm install @capacitor/android --save
@@ -62,13 +89,10 @@ npm install
 ## 3. Generar los assets web
 
 ```bash
-# Genera build/ con index.html y assets
 ionic build
 # o
 npm run build
 ```
-
-Verificá que exista `client/build/index.html`.
 
 ---
 
@@ -80,7 +104,7 @@ npx cap sync android
 
 Este comando:
 
-* Copia tu build web a `android/app/src/main/assets/public`
+* Copia la build web a `android/app/src/main/assets/public`
 * Regenera archivos nativos faltantes (incluye `capacitor.settings.gradle`)
 
 ---
@@ -91,6 +115,7 @@ Este comando:
 npx cap open android
 ```
 
-1. En Android Studio, hacé click en **“Sync Project with Gradle Files”**.
+1. En Android Studio, dar un click en **“Sync Project with Gradle Files”**.
 2. Esperá a que termine la sincronización.
+3. Probar la aplicación en Android Studio y sacar el APK.
 
