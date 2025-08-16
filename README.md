@@ -1,6 +1,8 @@
 # README: Despliegue de tu App Ionic en Android 📱
 
 Este README resume los pasos para armar, sincronizar y probar tu proyecto Ionic usando Capacitor y Android Studio, sin necesidad de cables USB.
+## Nota Importante
+La versión Web es funcional en el commit 'v1', esto debido a que se hizo cambios en la forma de manejar http para el APK (Commit 'end')
 
 ---
 
